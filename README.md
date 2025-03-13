@@ -1,7 +1,7 @@
 # **ATS Resume Matcher & Job Description Parser**  
 🚀 **An AI-powered tool to match resumes with job descriptions and extract key details using NLP & FastAPI.**  
 
-![GitHub Repo Stars](https://img.shields.io/github/stars/your-repo?style=social) ![GitHub forks](https://img.shields.io/github/forks/your-repo?style=social) ![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)  
+![GitHub Repo Stars](https://img.shields.io/github/stars/your-repo?style=social) ![GitHub forks](https://img.shields.io/github/forks/ats-checker?style=social) ![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)  
 
 ---
 
