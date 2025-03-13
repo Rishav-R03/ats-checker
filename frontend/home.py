@@ -13,12 +13,19 @@ def home():
         - 🎯 Match your resume with job descriptions.
         - 🔍 Identify missing keywords to improve your chances.
         - 📊 Get a percentage match score for ATS optimization.
+        - 📊 Parse a job description to understand experience level, skill requirements.
 
         **How It Works:**
+        **Match Resume with Job Description:**
         1. Navigate to **Analyze Resume** page.
         2. Upload your resume in **PDF format**.
         3. Enter the job description.
         4. Get AI-powered feedback!
+
+        **Parse Job Description:**
+        1. Navigate to **Resume Matcher** page.
+        2. Upload job description in **Text Area**.
+        3. Get AI-powered feedback!
         """
     )
 
