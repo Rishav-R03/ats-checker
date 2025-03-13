@@ -27,3 +27,5 @@ def home():
     # Correct Navigation for Multi-Page App
     if st.button("Go to Resume Analyzer"):
         st.page_link("pages/analyseresume.py", label="Go to Resume Analyzer", icon="📄")
+    if st.button("Go to Job Description Parser"):
+        st.page_link("pages/resumematcher.py", label="Go to Job Description Parser", icon="📄")

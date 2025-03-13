@@ -5,13 +5,15 @@ from fastapi import FastAPI, UploadFile, File, Form
 import os
 import io
 import base64
+from pydantic import BaseModel
 from PIL import Image
 import pdf2image
 import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
-
+class JobDescriptionRequest(BaseModel):
+    text: str
 # Configure Google Gemini API
 api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
@@ -95,3 +97,14 @@ async def input_pdf_setup(job_description: str = Form(...), resume: UploadFile =
         }
     except Exception as e:
         return {"error": f"Server error: {str(e)}"}
+
+@app.post("/resume_matcher")
+async def parse_job(request: JobDescriptionRequest):
+    """Extracts job titles, skills, and experience level from job descriptions"""
+    # Dummy response (Replace with actual logic using extract_entities_gemini)
+    result = {
+        "job_titles": ["Senior DevOps Engineer"],
+        "skills": ["AWS", "Kubernetes", "Terraform"],
+        "experience_level": ["Senior"]
+    }
+    return result
