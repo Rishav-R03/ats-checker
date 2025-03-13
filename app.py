@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import streamlit as st
-from fastapi import FastAPI, UploadFile, File
+from frontend import analyze_resume
+from fastapi import FastAPI, UploadFile, File, Form
 import os
 import io
 import base64
@@ -26,26 +27,50 @@ def home():
 
 # Function to extract first page from PDF as image
 def extract_pdf_content(pdf_bytes):
-    images = pdf2image.convert_from_bytes(pdf_bytes)  # Ensure Poppler is installed
-    if not images:
+    try:
+        images = pdf2image.convert_from_bytes(pdf_bytes)
+        if not images:
+            print("Error: No images extracted from PDF")
+            return None
+
+        first_page = images[0]
+        print("First page extracted successfully.")
+
+        img_byte_arr = io.BytesIO()
+        first_page.save(img_byte_arr, format='JPEG')
+
+        base64_encoded = base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')
+
+        print("Extracted PDF Content (Base64, first 100 chars):", base64_encoded[:100])  # Debugging
+        return base64_encoded
+    except Exception as e:
+        print("Poppler/PDF Extraction Error:", e)
         return None
-    
-    first_page = images[0]
-    img_byte_arr = io.BytesIO()
-    first_page.save(img_byte_arr, format='JPEG')
-    return base64.b64encode(img_byte_arr.getvalue()).decode('utf-8')  # Corrected encoding
+
 
 # Function to generate response using Gemini AI
 def get_gemini_response(input_text, pdf_content, prompt):
     model = genai.GenerativeModel('gemini-2.0-flash')
     response = model.generate_content([input_text, pdf_content, prompt])  
+    
+    print("Gemini Response:", response)  # Debugging line
+
+    if not response or not response.text:
+        return "Error: Empty response from Gemini"
+    
     return response.text
 
 # FastAPI endpoint for resume analysis
 @app.post("/analyse_resume")
-async def input_pdf_setup(job_description: str, resume: UploadFile = File(...)):
+async def input_pdf_setup(job_description: str = Form(...), resume: UploadFile = File(...)):
     try:
-        pdf_content = extract_pdf_content(await resume.read())
+        pdf_bytes = await resume.read()
+
+        if not pdf_bytes:
+            return {"error": "Uploaded file is empty"}
+
+        pdf_content = extract_pdf_content(pdf_bytes)
+
         if not pdf_content:
             return {"error": "Failed to process PDF"}
 
@@ -63,39 +88,10 @@ async def input_pdf_setup(job_description: str, resume: UploadFile = File(...)):
         response1 = get_gemini_response(input_prompt1, pdf_content, job_description)
         response2 = get_gemini_response(input_prompt2, pdf_content, job_description)
 
-        return {"job_description": job_description, "analysis": response1, "percentage_match": response2}
+        return {
+            "job_description": job_description,
+            "analysis": response1 if response1 else "Error: No analysis generated.",
+            "percentage_match": response2 if response2 else "Error: No percentage match found."
+        }
     except Exception as e:
-        return {"error": str(e)}
-
-# Streamlit UI
-st.set_page_config(page_title="ATS Resume Expert", page_icon=":books:")
-st.header("Application Tracking System")
-
-# Job description input
-input_text = st.text_area("Job Description:", key="input")
-
-# Resume upload
-uploaded_file = st.file_uploader("Upload your resume [PDF]", type=["pdf"])
-
-if uploaded_file is not None:
-    st.write("PDF Uploaded Successfully")
-
-    # Buttons for different analyses
-    submit1 = st.button("Tell me about the resume")
-    submit3 = st.button("Percentage match")
-
-    if submit1 or submit3:
-        pdf_bytes = uploaded_file.read()
-        pdf_content = extract_pdf_content(pdf_bytes)
-
-        if pdf_content:
-            prompt = (
-                "Analyze this resume" if submit1 
-                else "Provide a percentage match and missing keywords"
-            )
-            response = get_gemini_response(input_text, pdf_content, prompt)
-
-            st.subheader("The response is:")
-            st.write(response)
-        else:
-            st.write("Error processing PDF. Please try again.")
+        return {"error": f"Server error: {str(e)}"}
