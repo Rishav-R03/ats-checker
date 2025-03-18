@@ -5,46 +5,51 @@ import requests
 BACKEND_URL = "http://localhost:8000"
 
 def resume_matcher():
-    """Resume Matcher UI Page"""
-    st.set_page_config(page_title="Resume Matcher", page_icon="📄")
+    st.title("Job Description Parser")
+    st.write("Paste a job description to extract key details")
     
-    st.title("🔍 Job Description Parser")
-    st.write("Enter a job description and extract key details!")
+    # Text area for input
+    job_description = st.text_area("Job Description", height=300)
+    
+    if st.button("Parse Description"):
+        if job_description:
+            try:
+                # ✅ Corrected API request
+                response = requests.post(
+                    f"{BACKEND_URL}/resume_matcher",
+                    json={"text": job_description}  # ✅ Use "text" instead of "description"
+                )
 
-    # Text input for job description
-    job_desc = st.text_area("📄 Paste Job Description Here:", height=200)
-
-    if st.button("🔍 Extract Details"):
-        if job_desc.strip():
-            with st.spinner("Processing... ⏳"):
-                try:
-                    # Send request to FastAPI backend
-                    response = requests.post(f"{BACKEND_URL}/resume_matcher", json={"text": job_desc}, timeout=10)
-                    response.raise_for_status()  # Raise error for 4xx/5xx responses
-
-                    # Ensure response is valid JSON
+                if response.status_code == 200:
                     result = response.json()
 
-                    # Display extracted information
-                    st.markdown("### **🔎 Extracted Details**")
+                    # Display results
+                    st.subheader("Parsed Results")
+                    col1, col2 = st.columns(2)
 
-                    st.markdown("**📝 Job Titles:**")
-                    st.write(", ".join(result.get("job_titles", [])) or "❌ No titles found.")
+                    with col1:
+                        st.markdown(f"**Role:** {result['role_name'] or 'Not found'}")
+                        st.markdown(f"**Salary:** {result['salary'] or 'Not found'}")
 
-                    st.markdown("**🛠️ Required Skills:**")
-                    st.write(", ".join(result.get("skills", [])) or "❌ No skills found.")
+                    with col2:
+                        st.markdown(f"**Location:** {result['location'] or 'Not found'}")
 
-                    st.markdown("**📈 Experience Level:**")
-                    st.write(", ".join(result.get("experience_level", [])) or "❌ Not specified.")
-
-                except requests.exceptions.RequestException as e:
-                    st.error(f"❌ API request failed: {e}")
-                except ValueError:
-                    st.error("❌ Invalid response from API. Expected JSON but got a string.")
-                    st.write(response.text)  # Print actual response for debugging
-
+                    st.subheader("Skills")
+                    if result['skills']:
+                        skills_html = "".join(
+                            f'<span style="background-color: #e0e0e0; padding: 5px 10px; margin: 5px; border-radius: 15px;">{skill}</span>'
+                            for skill in result['skills']
+                        )
+                        st.markdown(skills_html, unsafe_allow_html=True)
+                    else:
+                        st.write("No skills found")
+                else:
+                    st.error(f"Error: {response.status_code}")
+                    st.write(response.text)
+            except Exception as e:
+                st.error(f"Error connecting to API: {str(e)}")
         else:
-            st.warning("⚠️ Please enter a job description!")
+            st.warning("Please enter a job description")
 
 if __name__ == "__main__":
     resume_matcher()

@@ -1,7 +1,10 @@
 from dotenv import load_dotenv
 import streamlit as st
+import re
+import json
 from frontend import analyze_resume
-from fastapi import FastAPI, UploadFile, File, Form
+from typing import List, Dict, Any, Optional
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 import os
 import io
 import base64
@@ -14,6 +17,7 @@ import google.generativeai as genai
 load_dotenv()
 class JobDescriptionRequest(BaseModel):
     text: str
+
 # Configure Google Gemini API
 api_key = os.getenv("GOOGLE_API_KEY")
 if not api_key:
@@ -98,13 +102,92 @@ async def input_pdf_setup(job_description: str = Form(...), resume: UploadFile =
     except Exception as e:
         return {"error": f"Server error: {str(e)}"}
 
-@app.post("/resume_matcher")
-async def parse_job(request: JobDescriptionRequest):
-    """Extracts job titles, skills, and experience level from job descriptions"""
-    # Dummy response (Replace with actual logic using extract_entities_gemini)
-    result = {
-        "job_titles": ["Senior DevOps Engineer"],
-        "skills": ["AWS", "Kubernetes", "Terraform"],
-        "experience_level": ["Senior"]
-    }
-    return result
+# Define the request model
+
+# Pydantic model to accept job description
+class JobDescriptionRequest(BaseModel):
+    description: str
+
+class JobDescription(BaseModel):
+    text: str
+
+class JobDetails(BaseModel):
+    role_name: Optional[str]
+    salary: Optional[str]
+    location: Optional[str]
+    skills: List[str]
+
+# Function to extract key details from job description
+
+# API endpoint to parse job description
+@app.post("/resume_matcher", response_model=JobDetails)
+async def parse_job_description(job_desc: JobDescription):
+    """
+    Parse a job description to extract role name, salary range, location, and required skills.
+    """
+    text = job_desc.text
+
+    # Extract role name
+    role_patterns = [
+        r"(?:Job Title|Title|Position|Role):\s*([^\n]+)",
+        r"^([A-Z][a-zA-Z\s]+(?:Developer|Engineer|Manager|Analyst|Designer|Consultant|Specialist|Architect|Director|Officer|Administrator|Coordinator|Executive|Assistant|Lead))"
+    ]
+    role_name_list = [match.group(1).strip() for pattern in role_patterns if (match := re.search(pattern, text))]
+    role_name = role_name_list[0] if role_name_list else None
+
+    # Extract salary
+    salary_patterns = [
+        r"(?:Salary|Compensation|Pay):\s*([^\n]+)",
+        r"((?:\$|₹|USD|EUR|£|€)[0-9,.]+\s*(?:to|–|-)\s*(?:\$|₹|USD|EUR|£|€)?[0-9,.]+\s*(?:per\s*year|/year|annum|annually|/yr|a year)?)",
+        r"((?:\$|₹|USD|EUR|£|€)[0-9,.]+\s*(?:per\s*year|/year|annum|annually|/yr|a year)?)"
+    ]
+    salary_list = [match.group(1).strip() for pattern in salary_patterns if (match := re.search(pattern, text))]
+    salary = salary_list[0] if salary_list else None
+
+    # Extract location
+    location_patterns = [
+        r"(?:Location|Place|City|Address|Based in|Position located in|Work location):\s*([^\n]+)",
+        r"(?:in|at)\s+([A-Z][a-zA-Z\s]+,\s*[A-Z]{2})",
+        r"([A-Z][a-zA-Z\s]+,\s*[A-Z]{2})",
+        r"(Remote|Work from home|Hybrid|On-site)"
+    ]
+    location_list = [match.group(1).strip() for pattern in location_patterns if (match := re.search(pattern, text, re.IGNORECASE))]
+    location = location_list[0] if location_list else None
+
+    # Extract skills
+    skill_keywords = [
+        "Python", "Java", "JavaScript", "SQL", "C\\+\\+", "C#", "Ruby", "PHP", "Swift", 
+        "Kotlin", "Go", "Rust", "HTML", "CSS", "React", "Angular", "Vue", "Node.js",
+        "Django", "Flask", "Ruby on Rails", "Spring", "ASP.NET", "Express.js", 
+        "PostgreSQL", "MySQL", "MongoDB", "Oracle", "SQL Server", "NoSQL",
+        "AWS", "Azure", "GCP", "Docker", "Kubernetes", "Git", "CI/CD", "Jenkins",
+        "Agile", "Scrum", "Kanban", "Jira", "Confluence", "DevOps", "Linux", "Unix",
+        "Machine Learning", "AI", "Data Science", "TensorFlow", "PyTorch", "Pandas",
+        "Excel", "PowerPoint", "Word", "Communication", "Teamwork", "Leadership"
+    ]
+    
+    skill_pattern = r'\b(?:' + '|'.join(skill_keywords) + r')\b'
+    skills_found = list(set(re.findall(skill_pattern, text, re.IGNORECASE)))
+
+    # Extract additional skills from sections like "Skills:", "Requirements:", etc.
+    skill_section_patterns = [
+        r"(?:Skills|Requirements|Qualifications|Prerequisites):\s*([^\n]+)",
+        r"(?:Skills Required|Technical Skills):\s*([^\n]+)"
+    ]
+    for pattern in skill_section_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            section_text = match.group(1)
+            section_skills = [s.strip() for s in re.split(r',|\•|\*|\-', section_text) if s.strip()]
+            skills_found.extend(section_skills)
+
+    # Clean up skills list (remove duplicates and empty strings)
+    skills_found = list(set([skill.strip() for skill in skills_found if skill.strip()]))
+
+    # Return parsed details
+    return JobDetails(
+        role_name=role_name,
+        salary=salary,
+        location=location,
+        skills=skills_found
+    )
