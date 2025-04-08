@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "https://ats-checker-u4tz.onrender.com"
 
 def analyse_resume():
     st.set_page_config(page_title="Resume Analyzer", page_icon="📄")
