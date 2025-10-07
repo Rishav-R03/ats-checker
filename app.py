@@ -9,14 +9,12 @@ import os
 import io
 import base64
 from pydantic import BaseModel
-from PIL import Image
+# from PIL import Image
 import pdf2image
 import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
-class JobDescriptionRequest(BaseModel):
-    text: str
 
 # Configure Google Gemini API
 api_key = os.getenv("GOOGLE_API_KEY")

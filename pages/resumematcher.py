@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 # Backend API URL
-BACKEND_URL = "https://ats-checker-u4tz.onrender.com"
+BACKEND_URL = "http://localhost:3000"
 
 def resume_matcher():
     """Resume Matcher UI Page"""
